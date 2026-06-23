@@ -1,6 +1,22 @@
-# Quorom
+<p align="center">
+  <img src="og.png" alt="Quorom — Your private AI cluster, reachable from anywhere." width="600">
+</p>
 
-**Your private AI cluster, reachable from anywhere.**
+<h1 align="center">Quorom</h1>
+
+<p align="center">
+  <strong>Your private AI cluster, reachable from anywhere.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/webface/quorom-app/releases/latest">Download</a> ·
+  <a href="https://app.quorom.app/install">Install Guide</a> ·
+  <a href="https://app.quorom.app/dashboard">Dashboard</a> ·
+  <a href="https://app.quorom.app/terms">Terms</a> ·
+  <a href="https://app.quorom.app/privacy">Privacy</a>
+</p>
+
+---
 
 Quorom turns the machines you already own into one OpenAI-compatible
 inference cluster — without VPNs, port forwarding, or networking headaches.
