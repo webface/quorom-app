@@ -3,8 +3,7 @@
 **Your private AI cluster, reachable from anywhere.**
 
 Quorom turns the machines you already own into one OpenAI-compatible
-inference cluster — without Tailscale invites, port forwarding, or
-distributed-inference complexity.
+inference cluster — without VPNs, port forwarding, or networking headaches.
 
 ---
 
@@ -12,49 +11,49 @@ distributed-inference complexity.
 
 | Platform | Link |
 |---|---|
-| macOS (universal) | [quorom-macos-universal.zip](https://github.com/webface/quorom-app/releases/latest/download/quorom-macos-universal.zip) |
-| Windows (amd64) | [quorom-windows-amd64.exe](https://github.com/webface/quorom-app/releases/latest/download/quorom-windows-amd64.exe) |
+| macOS (universal) | [quorom-macos-universal.zip](https://github.com/webface/quorom-app/releases/latest) |
+| macOS (installer) | [quorom-macos-installer.dmg](https://github.com/webface/quorom-app/releases/latest) |
+| Windows (amd64) | [quorom-windows-amd64.exe](https://github.com/webface/quorom-app/releases/latest) |
 
-Need help? See the **[Install Guide](https://app.quorom.app/install)**.
+Need help? See the [Install Guide](https://app.quorom.app/install).
 
-## Quick install
+## Install
 
 ### macOS
-```bash
-# 1. Unzip and drag Quorom.app to /Applications
-# 2. Bypass Gatekeeper (alpha build is self-signed):
-xattr -dr com.apple.quarantine /Applications/Quorom.app
-# 3. Launch
-```
-
-Or via GUI: System Settings → Privacy & Security → "Quorom was blocked" → **Open Anyway**.
+1. Download the `.dmg`, open it, drag **Quorom.app** to **Applications**
+2. First launch: bypass Gatekeeper — run in Terminal:
+   ```
+   xattr -dr com.apple.quarantine /Applications/Quorom.app
+   ```
+   Or: System Settings → Privacy & Security → "Quorom was blocked" → **Open Anyway**
+3. Launch Quorom
 
 ### Windows
-1. Run `quorom-windows-amd64.exe`
-2. If SmartScreen warns: **More info** → **Run anyway**
+1. Download the `.exe`
+2. Run it — if SmartScreen warns, click **More info** → **Run anyway**
 
 ---
 
 ## What it does
 
-- **Zero-config networking.** Nodes connect outbound to the Quorom relay. No firewalls to open, no port forwarding, no invite ACLs.
+- **Zero-config networking.** Nodes connect outbound to the Quorom relay. No firewalls, no port forwarding, no network configuration.
 - **OpenAI-compatible.** Point Cursor, Open WebUI, or curl at `https://api.quorom.app/v1` — it drops in anywhere the OpenAI SDK is used.
 - **Use your own hardware.** Your machines' GPUs and RAM become cluster nodes. No model duplication.
-- **Local-first.** Models run on hardware you control. The relay only brokers metadata and token streams; it never stores prompts or completions.
+- **Local-first.** Models run on hardware you control. The relay only brokers metadata and token streams — it never stores prompts or completions.
+- **Distributed inference.** Split a model across machines so every node contributes compute to each token.
 
 ## Quick start
 
 1. Download and launch Quorom
-2. Follow the setup wizard (auto-detects Ollama, offers one-click install + model pull)
+2. Follow the setup wizard (auto-detects Ollama / LM Studio, offers one-click install)
 3. **Settings → Cloud Cluster → Sign in** to connect to the relay
-4. Visit the [web dashboard](https://app.quorom.app) to create a cluster and generate an API key
-5. Share the cluster invite code with anyone you want to join
+4. Visit the [web dashboard](https://app.quorom.app) to create a cluster and get an invite code
+5. Share the invite code with anyone you want to join
 6. Use it from anywhere:
 
 ```bash
 curl https://api.quorom.app/v1/chat/completions \
   -H "X-Quorom-Cluster: <invite-code>" \
-  -H "X-Quorom-API-Key: <api-key>" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "llama3.1:8b",
@@ -63,27 +62,27 @@ curl https://api.quorom.app/v1/chat/completions \
   }'
 ```
 
-## Backends supported
+## Supported backends
 
 Each node can serve inference from any of:
 - **Ollama** (auto-installer in the wizard)
 - **LM Studio** (Local Server)
-- **llama.cpp** `llama-server`
+- **llama.cpp** (including RPC for distributed inference)
 - **MLX** on Apple Silicon
 - **vLLM**
 - Any other **OpenAI-compatible** HTTP server
-- Built-in **Mock engine** for testing without any model software
 
 ## Status
 
-Quorom is in **alpha**. Things may break. Token-streaming is stable; the desktop UI and web dashboard are evolving.
+Quorom is in **alpha**.
 
 - ✅ Cross-platform desktop app (macOS, Windows)
 - ✅ Relay-routed cluster networking
 - ✅ OpenAI-compatible API
-- ✅ Clerk-based authentication
-- ✅ Convex-backed cluster state
-- 🚧 Apple notarization + Windows EV signing (currently self-signed)
+- ✅ Secure authentication
+- ✅ Persistent cluster state
+- ✅ Distributed inference (model sharding across machines)
+- 🚧 Apple notarization + Windows code signing
 - 🚧 Linux desktop builds
 - 🚧 In-app auto-update
 - 🚧 Per-cluster usage billing
@@ -93,11 +92,7 @@ Quorom is in **alpha**. Things may break. Token-streaming is stable; the desktop
 
 Quorom is designed to be **local-first**. Your prompts and completions
 never touch the relay in persisted form — the relay forwards token
-streams in memory and discards them. The only data persisted to Convex
-is:
-- Your email and Clerk user ID (for auth)
-- Node display names + the list of models each node is serving
-- Aggregate usage counters (tokens in/out per request, for metering)
+streams in memory and discards them.
 
 Read the full [Privacy Policy](https://app.quorom.app/privacy) and
 [Terms of Service](https://app.quorom.app/terms).
