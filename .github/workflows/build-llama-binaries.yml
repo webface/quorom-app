@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       llama_ref:
-        description: 'llama.cpp ref (tag like b3800, or "main")'
+        description: 'llama.cpp ref (tag like b3800, or "default" for latest)'
         required: true
-        default: 'main'
+        default: 'default'
 
 permissions:
   contents: write
@@ -16,10 +16,14 @@ jobs:
     runs-on: windows-2022
     steps:
       - name: Checkout llama.cpp
+        shell: pwsh
         run: |
-          git clone https://github.com/ggerganov/llama.cpp.git
-          cd llama.cpp
-          git checkout ${{ inputs.llama_ref }}
+          $ref = '${{ inputs.llama_ref }}'
+          if ($ref -eq 'default') {
+            git clone --depth 1 https://github.com/ggerganov/llama.cpp.git
+          } else {
+            git clone --depth 1 --branch $ref https://github.com/ggerganov/llama.cpp.git
+          }
 
       - name: Find CUDA
         shell: pwsh
@@ -34,7 +38,7 @@ jobs:
             echo "CUDA not found — building CPU-only"
           }
 
-      - name: Build with CUDA + RPC (or CPU-only fallback)
+      - name: Build with CUDA + RPC
         shell: cmd
         run: |
           cd llama.cpp
@@ -67,23 +71,23 @@ jobs:
             if (Test-Path $src) { Copy-Item $src -Destination $dest }
           }
           
-          # Copy all DLLs (includes ggml CUDA DLLs if CUDA was found)
           Get-ChildItem "$binDir\*.dll" -ErrorAction SilentlyContinue | ForEach-Object {
             Copy-Item $_.FullName -Destination $dest
           }
           
           # Copy CUDA runtime DLLs
-          $cudaBin = Get-ChildItem "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\*\bin" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($cudaBin) {
+          $cudaDirs = Get-ChildItem "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA" -ErrorAction SilentlyContinue
+          if ($cudaDirs) {
+            $cudaBin = Join-Path ($cudaDirs | Sort-Object Name -Descending | Select-Object -First 1).FullName "bin"
             foreach ($dll in @("cudart64_*.dll", "cublas64_*.dll", "cublasLt64_*.dll")) {
-              Get-ChildItem (Join-Path $cudaBin.FullName $dll) -ErrorAction SilentlyContinue | ForEach-Object {
+              Get-ChildItem (Join-Path $cudaBin $dll) -ErrorAction SilentlyContinue | ForEach-Object {
                 Copy-Item $_.FullName -Destination $dest
               }
             }
           }
           
           Compress-Archive -Path "$dest\*" -DestinationPath "llama-cpp-rpc-win-x64.zip" -Force
-          Write-Host "=== Contents ==="
+          Write-Host "=== Package ==="
           Get-ChildItem $dest | Format-Table Name, Length
 
       - name: Upload to binaries release
@@ -98,9 +102,11 @@ jobs:
     steps:
       - name: Checkout llama.cpp
         run: |
-          git clone https://github.com/ggerganov/llama.cpp.git
-          cd llama.cpp
-          git checkout ${{ inputs.llama_ref }}
+          if [ "${{ inputs.llama_ref }}" = "default" ]; then
+            git clone --depth 1 https://github.com/ggerganov/llama.cpp.git
+          else
+            git clone --depth 1 --branch ${{ inputs.llama_ref }} https://github.com/ggerganov/llama.cpp.git
+          fi
 
       - name: Build with Metal + RPC
         run: |
