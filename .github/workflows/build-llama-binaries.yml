@@ -8,6 +8,9 @@ on:
         required: true
         default: 'b3800'
 
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -18,20 +21,12 @@ jobs:
           cd llama.cpp
           git checkout ${{ inputs.llama_version }}
 
-      - name: Install Vulkan SDK
-        shell: pwsh
-        run: |
-          curl -L -o vulkan.exe https://sdk.lunarg.com/sdk/download/1.3.283.0/windows/VulkanSDK-1.3.283.0-Installer.exe
-          Start-Process -FilePath vulkan.exe -ArgumentList "/S" -Wait
-          echo "VULKAN_SDK=C:\VulkanSDK\1.3.283.0" >> $env:GITHUB_ENV
-
-      - name: Build with Vulkan + RPC (CPU fallback for non-CUDA GPUs)
+      - name: Build with RPC (CPU + native optimization)
         shell: cmd
         run: |
           cd llama.cpp
           cmake -B build -G "Visual Studio 17 2022" -A x64 ^
             -DLLAMA_RPC=ON ^
-            -DGGML_VULKAN=ON ^
             -DGGML_NATIVE=ON ^
             -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release -j
@@ -43,23 +38,25 @@ jobs:
           $dest = "llama-cpp-rpc-win-x64"
           New-Item -ItemType Directory -Path $dest -Force
           
-          # Copy server + rpc binaries
           foreach ($f in @("llama-server.exe", "rpc-server.exe")) {
             $src = Join-Path $binDir $f
-            if (Test-Path $src) { Copy-Item $src -Destination $dest }
+            if (Test-Path $src) { 
+              Copy-Item $src -Destination $dest
+              Write-Host "Copied $f"
+            } else {
+              Write-Host "WARNING: $f not found at $src"
+              Get-ChildItem $binDir -ErrorAction SilentlyContinue | Format-Table Name
+            }
           }
           
           # Copy all DLLs
-          Get-ChildItem "$binDir\*.dll" | Copy-Item -Destination $dest
-          
-          # Copy Vulkan runtime
-          $vulkanBin = "C:\VulkanSDK\1.3.283.0\Bin"
-          if (Test-Path "$vulkanBin\vulkan-1.dll") {
-            Copy-Item "$vulkanBin\vulkan-1.dll" -Destination $dest
+          Get-ChildItem "$binDir\*.dll" -ErrorAction SilentlyContinue | ForEach-Object {
+            Copy-Item $_.FullName -Destination $dest
+            Write-Host "Copied $($_.Name)"
           }
           
           Compress-Archive -Path "$dest\*" -DestinationPath "llama-cpp-rpc-win-x64.zip" -Force
-          Write-Host "Contents:"
+          Write-Host "=== Package contents ==="
           Get-ChildItem $dest | Format-Table Name, Length
 
       - name: Upload to binaries release
@@ -97,7 +94,11 @@ jobs:
           cp llama.cpp/build/bin/rpc-server "$DEST/" 2>/dev/null || true
           cp llama.cpp/build/bin/libggml*.dylib "$DEST/" 2>/dev/null || true
           cp llama.cpp/build/bin/libllama*.dylib "$DEST/" 2>/dev/null || true
+          # Also copy default.metallib if it exists (Metal kernel cache)
+          find llama.cpp/build -name "default.metallib" -exec cp {} "$DEST/" \; 2>/dev/null || true
           zip -r llama-cpp-rpc-macos-arm64.zip "$DEST/"
+          echo "=== Contents ==="
+          ls -lh "$DEST/"
 
       - name: Upload to binaries release
         env:
