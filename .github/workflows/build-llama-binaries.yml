@@ -18,24 +18,21 @@ jobs:
           cd llama.cpp
           git checkout ${{ inputs.llama_version }}
 
-      - name: Setup CUDA
-        uses: Jimver/cuda-toolkit@v0.2.21
-        with:
-          cuda: '12.4.0'
+      - name: Install Vulkan SDK
+        shell: pwsh
+        run: |
+          curl -L -o vulkan.exe https://sdk.lunarg.com/sdk/download/1.3.283.0/windows/VulkanSDK-1.3.283.0-Installer.exe
+          Start-Process -FilePath vulkan.exe -ArgumentList "/S" -Wait
+          echo "VULKAN_SDK=C:\VulkanSDK\1.3.283.0" >> $env:GITHUB_ENV
 
-      - name: Setup Vulkan SDK
-        uses: humbletim/setup-vulkan-sdk@v1.2.0
-        with:
-          version: 1.3.283.0
-
-      - name: Build with CUDA + Vulkan + RPC
+      - name: Build with Vulkan + RPC (CPU fallback for non-CUDA GPUs)
         shell: cmd
         run: |
           cd llama.cpp
           cmake -B build -G "Visual Studio 17 2022" -A x64 ^
             -DLLAMA_RPC=ON ^
-            -DGGML_CUDA=ON ^
             -DGGML_VULKAN=ON ^
+            -DGGML_NATIVE=ON ^
             -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release -j
 
@@ -43,56 +40,26 @@ jobs:
         shell: pwsh
         run: |
           $binDir = "llama.cpp\build\bin\Release"
-          $files = @(
-            "llama-server.exe",
-            "rpc-server.exe"
-          )
-          
-          # Include required DLLs
-          $dlls = @(
-            "ggml.dll",
-            "ggml-base.dll",
-            "ggml-cuda.dll",
-            "ggml-vulkan.dll",
-            "ggml-cpu.dll"
-          )
-          
           $dest = "llama-cpp-rpc-win-x64"
           New-Item -ItemType Directory -Path $dest -Force
           
-          foreach ($f in $files) {
+          # Copy server + rpc binaries
+          foreach ($f in @("llama-server.exe", "rpc-server.exe")) {
             $src = Join-Path $binDir $f
-            if (Test-Path $src) {
-              Copy-Item $src -Destination $dest
-              Write-Host "Copied $f"
-            } else {
-              Write-Host "WARNING: $f not found"
-            }
+            if (Test-Path $src) { Copy-Item $src -Destination $dest }
           }
           
-          foreach ($dll in $dlls) {
-            $src = Join-Path $binDir $dll
-            if (Test-Path $src) {
-              Copy-Item $src -Destination $dest
-            }
-          }
+          # Copy all DLLs
+          Get-ChildItem "$binDir\*.dll" | Copy-Item -Destination $dest
           
-          # Also copy CUDA runtime DLLs that ggml-cuda depends on
-          $cudaPath = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin"
-          $cudaDLLs = @(
-            "cudart64_12.dll",
-            "cublas64_12.dll",
-            "cublasLt64_12.dll"
-          )
-          foreach ($dll in $cudaDLLs) {
-            $src = Join-Path $cudaPath $dll
-            if (Test-Path $src) {
-              Copy-Item $src -Destination $dest
-            }
+          # Copy Vulkan runtime
+          $vulkanBin = "C:\VulkanSDK\1.3.283.0\Bin"
+          if (Test-Path "$vulkanBin\vulkan-1.dll") {
+            Copy-Item "$vulkanBin\vulkan-1.dll" -Destination $dest
           }
           
           Compress-Archive -Path "$dest\*" -DestinationPath "llama-cpp-rpc-win-x64.zip" -Force
-          Write-Host "Package created: llama-cpp-rpc-win-x64.zip"
+          Write-Host "Contents:"
           Get-ChildItem $dest | Format-Table Name, Length
 
       - name: Upload to binaries release
@@ -117,6 +84,7 @@ jobs:
           cmake -B build \
             -DLLAMA_RPC=ON \
             -DGGML_METAL=ON \
+            -DGGML_NATIVE=ON \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=arm64
           cmake --build build -j
@@ -127,7 +95,6 @@ jobs:
           mkdir -p "$DEST"
           cp llama.cpp/build/bin/llama-server "$DEST/" 2>/dev/null || true
           cp llama.cpp/build/bin/rpc-server "$DEST/" 2>/dev/null || true
-          # Copy dylibs
           cp llama.cpp/build/bin/libggml*.dylib "$DEST/" 2>/dev/null || true
           cp llama.cpp/build/bin/libllama*.dylib "$DEST/" 2>/dev/null || true
           zip -r llama-cpp-rpc-macos-arm64.zip "$DEST/"
