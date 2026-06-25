@@ -12,8 +12,8 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build-windows-cuda:
+    runs-on: windows-2022
     steps:
       - name: Checkout llama.cpp
         run: |
@@ -21,15 +21,19 @@ jobs:
           cd llama.cpp
           git checkout ${{ inputs.llama_version }}
 
-      - name: Build with RPC (CPU + native optimization)
+      - name: Build with CUDA + RPC
         shell: cmd
+        env:
+          CUDA_PATH: "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.4"
         run: |
           cd llama.cpp
           cmake -B build -G "Visual Studio 17 2022" -A x64 ^
             -DLLAMA_RPC=ON ^
+            -DGGML_CUDA=ON ^
             -DGGML_NATIVE=ON ^
-            -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release -j
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCUDA_TOOLKIT_ROOT_DIR="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4"
+          cmake --build build --config Release -j -- -m
 
       - name: Package Windows binaries
         shell: pwsh
@@ -38,25 +42,27 @@ jobs:
           $dest = "llama-cpp-rpc-win-x64"
           New-Item -ItemType Directory -Path $dest -Force
           
+          # Copy server binaries
           foreach ($f in @("llama-server.exe", "rpc-server.exe")) {
             $src = Join-Path $binDir $f
             if (Test-Path $src) { 
               Copy-Item $src -Destination $dest
-              Write-Host "Copied $f"
-            } else {
-              Write-Host "WARNING: $f not found at $src"
-              Get-ChildItem $binDir -ErrorAction SilentlyContinue | Format-Table Name
             }
           }
           
-          # Copy all DLLs
-          Get-ChildItem "$binDir\*.dll" -ErrorAction SilentlyContinue | ForEach-Object {
-            Copy-Item $_.FullName -Destination $dest
-            Write-Host "Copied $($_.Name)"
+          # Copy all DLLs (includes ggml CUDA DLLs)
+          Get-ChildItem "$binDir\*.dll" | ForEach-Object { Copy-Item $_.FullName -Destination $dest }
+          
+          # Copy CUDA runtime DLLs
+          $cudaBin = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin"
+          $cudaDLLs = @("cudart64_12.dll", "cublas64_12.dll", "cublasLt64_12.dll")
+          foreach ($dll in $cudaDLLs) {
+            $src = Join-Path $cudaBin $dll
+            if (Test-Path $src) { Copy-Item $src -Destination $dest }
           }
           
           Compress-Archive -Path "$dest\*" -DestinationPath "llama-cpp-rpc-win-x64.zip" -Force
-          Write-Host "=== Package contents ==="
+          Write-Host "=== Contents ==="
           Get-ChildItem $dest | Format-Table Name, Length
 
       - name: Upload to binaries release
@@ -94,11 +100,8 @@ jobs:
           cp llama.cpp/build/bin/rpc-server "$DEST/" 2>/dev/null || true
           cp llama.cpp/build/bin/libggml*.dylib "$DEST/" 2>/dev/null || true
           cp llama.cpp/build/bin/libllama*.dylib "$DEST/" 2>/dev/null || true
-          # Also copy default.metallib if it exists (Metal kernel cache)
           find llama.cpp/build -name "default.metallib" -exec cp {} "$DEST/" \; 2>/dev/null || true
           zip -r llama-cpp-rpc-macos-arm64.zip "$DEST/"
-          echo "=== Contents ==="
-          ls -lh "$DEST/"
 
       - name: Upload to binaries release
         env:
