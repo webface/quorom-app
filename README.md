@@ -53,23 +53,26 @@ Need help? See the [Install Guide](https://app.quorom.app/install).
 ## What it does
 
 - **Zero-config networking.** Nodes connect outbound to the Quorom relay. No firewalls, no port forwarding, no network configuration.
+- **LAN auto-discovery.** Machines on the same network find each other automatically via mDNS — no cloud required for LAN routing.
 - **OpenAI-compatible.** Point Cursor, Open WebUI, or curl at `https://api.quorom.app/v1` — it drops in anywhere the OpenAI SDK is used.
 - **Use your own hardware.** Your machines' GPUs and RAM become cluster nodes. No model duplication.
 - **Local-first.** Models run on hardware you control. The relay only brokers metadata and token streams — it never stores prompts or completions.
+- **Auto-updating.** The app checks for updates on launch and can self-update with one click — no manual reinstall.
 - **Distributed inference.** Split a model across machines so every node contributes compute to each token.
 
 ## Quick start
 
 1. Download and launch Quorom
 2. Follow the setup wizard (auto-detects Ollama / LM Studio, offers one-click install)
-3. **Settings → Cloud Cluster → Sign in** to connect to the relay
-4. Visit the [web dashboard](https://app.quorom.app) to create a cluster and get an invite code
-5. Share the invite code with anyone you want to join
-6. Use it from anywhere:
+3. Visit the [web dashboard](https://app.quorom.app/dashboard) to create a cluster and generate an API key
+4. In Quorom: **Settings → Cloud Cluster → paste your API key → Connect**
+5. The key is saved — Quorom auto-connects on every boot
+6. Run Quorom on another machine with the same key to join the cluster
+7. Use it from anywhere:
 
 ```bash
 curl https://api.quorom.app/v1/chat/completions \
-  -H "X-Quorom-Cluster: <invite-code>" \
+  -H "Authorization: Bearer quorom_your_key" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "llama3.1:8b",
@@ -94,13 +97,15 @@ Quorom is in **alpha**.
 
 - ✅ Cross-platform desktop app (macOS, Windows)
 - ✅ Relay-routed cluster networking
+- ✅ LAN auto-discovery (mDNS) with direct peer-to-peer routing
 - ✅ OpenAI-compatible API
-- ✅ Secure authentication
-- ✅ Persistent cluster state
+- ✅ Secure authentication (API keys + Clerk)
+- ✅ Persistent cluster state (Convex)
 - ✅ Distributed inference (model sharding across machines)
+- ✅ In-app auto-update (one click, no reinstall)
+- ✅ Smart retry + fallback (resilient peer-to-peer chat)
 - 🚧 Apple notarization + Windows code signing
 - 🚧 Linux desktop builds
-- 🚧 In-app auto-update
 - 🚧 Per-cluster usage billing
 - 🚧 Team / org management
 
