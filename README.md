@@ -99,8 +99,8 @@ Quorom is in **alpha**.
 - ✅ Relay-routed cluster networking
 - ✅ LAN auto-discovery (mDNS) with direct peer-to-peer routing
 - ✅ OpenAI-compatible API
-- ✅ Secure authentication (API keys + Clerk)
-- ✅ Persistent cluster state (Convex)
+- ✅ Secure authentication (API keys + OAuth)
+- ✅ Persistent cluster state
 - ✅ Distributed inference (model sharding across machines)
 - ✅ In-app auto-update (one click, no reinstall)
 - ✅ Smart retry + fallback (resilient peer-to-peer chat)
